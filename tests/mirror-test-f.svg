@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">
+  <!-- Mirror check. An "F" is chiral: mirrored it looks different from merely
+       rotated, which a rectangle with a corner mark never does - every corner
+       of that is reachable by rotation alone.
+       Lay the cut vinyl adhesive-side down and read it from above. Rotating
+       your head is fine, the rotation does not matter. If the F reads
+       correctly, output is not mirrored. 30 x 50 mm. -->
+  <path d="M 10,10 L 40,10 L 40,18 L 20,18 L 20,30 L 35,30 L 35,38 L 20,38 L 20,60 L 10,60 Z"
+        fill="none" stroke="#000" stroke-width="0.2"/>
+</svg>

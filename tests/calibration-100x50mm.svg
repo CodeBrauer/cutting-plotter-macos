@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">
+  <!-- Scale check. Outer rectangle 100 x 50 mm, inner square 10 x 10 mm.
+       Measure both after cutting: the outer rectangle proves the scale on
+       each axis, the inner square proves the position is not drifting.
+       Note this pattern CANNOT reveal mirroring - use mirror-test-f.svg. -->
+  <g fill="none" stroke="#000" stroke-width="0.2">
+    <rect x="10" y="10" width="100" height="50"/>
+    <rect x="15" y="15" width="10" height="10"/>
+  </g>
+</svg>

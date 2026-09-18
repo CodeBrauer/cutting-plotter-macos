@@ -1,0 +1,25 @@
+# vpype device configuration for the VEVOR SK-720L / SK-870L
+#
+# Deliberately simple: vpype only maps millimetres to plotter units 1:1
+# (40 units/mm, confirmed by measurement). Rotating the axes, aligning to the
+# origin and checking the cutting width is done by lib/hpgl_align.py, where it
+# is readable and testable.
+#
+# Important: always write with --absolute. This machine ignores PR; (relative
+# coordinates) and then reads the values as absolute positions, which drives
+# the carriage into the end stop.
+
+[device.sk720l]
+name = "VEVOR SK-720L"
+plotter_unit_length = "0.025mm"   # 1016 dpi = 40 units/mm
+pen_count = 1
+
+[[device.sk720l.paper]]
+name = "raw"
+aka_names = ["default"]
+paper_size = ["2000mm", "2000mm"]
+x_range = [0, 80000]
+y_range = [0, 80000]
+y_axis_up = false
+origin_location = ["0mm", "0mm"]
+origin_location_reference = "topleft"

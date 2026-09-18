@@ -1,0 +1,9 @@
+# Generated HPGL from dry runs
+/*.hpgl
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
