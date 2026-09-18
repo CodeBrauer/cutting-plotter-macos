@@ -26,8 +26,8 @@ Verified end-to-end on a **VEVOR SK-720L** (630 mm / 24.8" cutting width,
 - [Requirements](#requirements)
 - [Setup](#setup)
 - [Verify before you cut](#verify-before-you-cut)
-- [Daily use](#daily-use)
 - [Exporting from Affinity Designer / Illustrator / Inkscape](#exporting-from-your-design-tool)
+- [Daily use](#daily-use)
 - [Supported machines](#supported-machines)
 - [Adding your machine](#adding-your-machine)
 - [Troubleshooting](#troubleshooting)
@@ -67,11 +67,20 @@ and drives the carriage into the end stop — the display shows
 
 ## How it works
 
-```
-SVG  ──vpype──>  HPGL  ──hpgl_align.py──>  aligned HPGL  ──CUPS raw queue──>  plotter
-      optimise        rotate axes,                       no driver needed
-      paths           align to origin,
-                      check cutting width
+```mermaid
+flowchart LR
+    A["SVG<br/>from your design tool"]
+    B["vpype<br/>merge &amp; sort paths"]
+    C["hpgl_align.py<br/>rotate · align · check width"]
+    D["CUPS raw queue<br/>no driver"]
+    E(["Cutting plotter"])
+    F["aborted<br/>nothing sent"]
+
+    A --> B
+    B -- "HPGL, SVG orientation" --> C
+    C -- "HPGL, machine orientation" --> D
+    D --> E
+    C -. "wider than the machine" .-> F
 ```
 
 [vpype](https://github.com/abey79/vpype) converts and optimises the paths
@@ -90,25 +99,53 @@ millimetres before you commit material to it.
 - [uv](https://docs.astral.sh/uv/) or pipx, to install vpype
 - A design tool that exports SVG (Affinity Designer, Illustrator, Inkscape, Figma)
 
-Inkscape is **not** required. Its built-in HPGL export is unreliable when called
-from the command line, and vpype does the job better.
-
 ## Setup
 
 **1. Install vpype**
 
+vpype is a Python tool, so it needs an installer. If you have
+[Homebrew](https://brew.sh), this is the whole story:
+
 ```bash
+brew install uv
 uv tool install vpype
 ```
 
-<details>
-<summary>No uv? Use pipx or pip instead</summary>
+`uv tool install` keeps vpype in its own isolated environment, so it cannot
+collide with any other Python you have. Verify it worked:
 
 ```bash
-pipx install vpype
-# or, into a virtualenv you manage yourself:
-python3 -m pip install vpype
+vpype --version
 ```
+
+<details>
+<summary>Without Homebrew, or using pipx / pip instead</summary>
+
+Install uv directly:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv tool install vpype
+```
+
+Or use pipx, which isolates it the same way:
+
+```bash
+brew install pipx     # or: python3 -m pip install --user pipx
+pipx install vpype
+```
+
+Plain pip works too, but install it into a virtualenv you manage yourself
+rather than the system Python:
+
+```bash
+python3 -m venv ~/.venvs/vpype
+~/.venvs/vpype/bin/pip install vpype
+# then add ~/.venvs/vpype/bin to your PATH
+```
+
+Note that vpype is **not** available as a Homebrew formula — `brew install
+vpype` will not work.
 </details>
 
 **2. Connect and power on the plotter**
@@ -121,8 +158,38 @@ cd cutting-plotter-macos
 ./setup.sh
 ```
 
-This finds the machine, creates a **raw** CUPS queue that passes HPGL through
-untouched, and prints what it did. It is safe to re-run.
+<details>
+<summary>What <code>setup.sh</code> actually does</summary>
+
+No magic and nothing hidden — four steps you could run by hand:
+
+1. Asks CUPS which USB devices it can see (`lpinfo -v`)
+2. Matches them against `USB_URI_MATCH` from the machine's `profile.env`
+3. Creates a **raw** queue for that URI with `lpadmin`. Raw means CUPS passes
+   the bytes through untouched instead of rendering them — exactly what a
+   plotter needs, and why no driver or PPD is involved
+4. Prints the queue status and which test to run next
+
+The single command it boils down to:
+
+```bash
+lpadmin -p VEVOR_SK720L -E \
+  -v 'usb://wch.cn/USB2.0%20To%20Serial%20Port?serial=WCH454545TS2' \
+  -o printer-is-shared=false
+```
+
+It installs **no** driver, kext or system extension, and touches nothing
+outside your CUPS printer list. Re-running it is safe: an existing queue is
+updated rather than duplicated. To remove it again: `lpadmin -x VEVOR_SK720L`.
+
+| Option | Meaning |
+|---|---|
+| *(none)* | Set up the only machine in `devices/` |
+| `-d NAME` | Set up a specific machine |
+| `-l` | Only list the USB devices CUPS sees, change nothing |
+| `-h` | Show usage |
+
+</details>
 
 Your user must be in the `_lpadmin` group, which admin accounts are by default:
 
@@ -156,6 +223,18 @@ The "F" matters. A rectangle with a corner mark **cannot** reveal mirroring,
 because every corner is reachable by rotation alone. Mirrored text is only
 obvious once you have wasted material on it.
 
+## Exporting from your design tool
+
+- Export as **plain SVG**
+- Keep the document width within the **cutting width** (630 mm on the SK-720L —
+  that is narrower than the 720 mm material feed)
+- **Convert text to curves/outlines.** Only paths are processed, fonts are not
+- Only **outlines** are cut; fills are ignored. Anything you want cut must be a
+  path. In Affinity Designer: *Right click → Convert to Curves*
+
+Whatever is wide in your design ends up across the roll; the height runs in the
+feed direction. The `-r` option below turns it the other way round.
+
 ## Daily use
 
 ```bash
@@ -165,6 +244,27 @@ obvious once you have wasted material on it.
 ./plot -r 270 design.svg   # rotate: 0, 90 (default), 180, 270
 ./plot ready.hpgl          # send existing HPGL untouched
 ```
+
+### Options
+
+| Option | Meaning |
+|---|---|
+| `-n` | Dry run. Convert, print the dimensions and the HPGL, send nothing |
+| `-m` | Mirror the output — for heat transfer and iron-on vinyl, which is applied face down |
+| `-r 0\|90\|180\|270` | Rotation, in the SVG sense. Defaults to the machine profile's `DEFAULT_ROTATE` |
+| `-d NAME` | Which machine in `devices/` to use. Only needed once you have more than one |
+| `-q NAME` | Use a different CUPS queue than the profile's |
+| `-h` | Show usage |
+
+Options combine, so `./plot -n -m -r 180 design.svg` previews a mirrored,
+half-turned job without sending it.
+
+**Input handling:** anything ending in `.hpgl` is sent **unchanged** — no
+rotation, no alignment, no width check. That keeps hand-written test files
+meaningful. Everything else goes through vpype and `hpgl_align.py`.
+
+`-r` rotates but never mirrors, so a design cannot come out backwards by
+accident. Mirroring only ever happens when you ask for it with `-m`.
 
 Every job reports its real size first:
 
@@ -177,18 +277,6 @@ Anything wider than the cutting width **aborts before sending**. A crash into th
 end stop should fail on your computer, not in your material.
 
 `-n` costs nothing and catches scaling mistakes before they become waste.
-
-## Exporting from your design tool
-
-- Export as **plain SVG**
-- Keep the document width within the **cutting width** (630 mm on the SK-720L —
-  that is narrower than the 720 mm material feed)
-- **Convert text to curves/outlines.** Only paths are processed, fonts are not
-- Only **outlines** are cut; fills are ignored. Anything you want cut must be a
-  path. In Affinity Designer: *Right click → Convert to Curves*
-
-Whatever is wide in your design ends up across the roll; the height runs in the
-feed direction. Use `-r` if you want it the other way round.
 
 ## Supported machines
 
@@ -255,6 +343,8 @@ until the vinyl is cut through but the backing paper is untouched.
 ## Licence
 
 [MIT](LICENSE). The included manufacturer manual is VEVOR's own document,
-redistributed for convenience. It carries the English section only and is
-recompressed for size — 19 MB and 168 multilingual pages down to 1.5 MB and 20
-pages, with searchable text intact.
+redistributed for convenience. It carries the English section only.
+
+---
+
+Built with Claude and humans 🤖🤝🧑‍💻

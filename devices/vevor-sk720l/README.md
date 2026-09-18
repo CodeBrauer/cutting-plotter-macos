@@ -5,9 +5,8 @@ SignMaster (Windows only). The SK-870L shares the same manual and firmware.
 
 - [Product page (EN/EU)](https://eur.vevor.com/vinyl-cutter-c_11151/vevor-vinyl-cutter-machine-cutting-plotter-28in-bluetooth-signmaster-kit-bundle-p_010958201479)
 - [Produktseite (DE)](https://www.vevor.de/schneideplotter-c_11151/vevor-schneideplotter-plottermaschine-630mm-folienschneider-signmaster-software-p_010958201479)
-- [Manufacturer's manual](manual/vevor-sk720l-sk870l-manual-en.pdf) (SK-720L + SK-870L)
-  — English section only, 20 pages. The original is a 168-page, 19 MB multilingual
-  PDF; this is the English part, recompressed to 1.5 MB with searchable text intact.
+- [Manufacturer's manual](manual/vevor-sk720l-sk870l-manual-en.pdf) (SK-720L + SK-870L,
+  English section, 20 pages)
 
 ## USB identity
 
