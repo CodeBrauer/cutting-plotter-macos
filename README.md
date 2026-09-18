@@ -116,7 +116,7 @@ python3 -m pip install vpype
 **3. Create the print queue**
 
 ```bash
-git clone https://github.com/codebrauer/cutting-plotter-macos.git
+git clone https://github.com/CodeBrauer/cutting-plotter-macos.git
 cd cutting-plotter-macos
 ./setup.sh
 ```
