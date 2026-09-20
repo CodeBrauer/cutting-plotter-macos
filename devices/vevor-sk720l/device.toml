@@ -14,12 +14,20 @@ name = "VEVOR SK-720L"
 plotter_unit_length = "0.025mm"   # 1016 dpi = 40 units/mm
 pen_count = 1
 
+# The "paper" here is not a sheet -- this is a roll-fed machine. Only the
+# carriage axis is limited (630 mm), and hpgl_align.py enforces that. The feed
+# direction is limited by the roll, not the machine: 2 m banners are routine.
+#
+# These numbers must therefore be far larger than any realistic job. vpype
+# CLIPS geometry to the page SILENTLY -- no warning, exit code 0 -- so a value
+# that is merely "generous" turns into a job that is quietly cut too short.
+# 50 m is well past anything a roll holds.
 [[device.sk720l.paper]]
 name = "raw"
 aka_names = ["default"]
-paper_size = ["2000mm", "2000mm"]
-x_range = [0, 80000]
-y_range = [0, 80000]
+paper_size = ["50000mm", "50000mm"]
+x_range = [0, 2000000]
+y_range = [0, 2000000]
 y_axis_up = false
 origin_location = ["0mm", "0mm"]
 origin_location_reference = "topleft"

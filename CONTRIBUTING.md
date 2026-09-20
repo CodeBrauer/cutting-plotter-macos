@@ -67,10 +67,26 @@ by rotation.
 Add a `README.md` to your device directory following
 [`devices/vevor-sk720l/README.md`](devices/vevor-sk720l/README.md): USB identity,
 coordinate system, any firmware quirks, and a verification log with real
-measurements. Quirks are the valuable part — the `PR;` issue on the SK-720L
-would have cost days to rediscover.
+measurements. Quirks are the valuable part: they are invisible in a datasheet
+and expensive to rediscover.
 
 Add a row to the table in the main README.
+
+## A trap in the device config
+
+`device.toml` defines a page size for vpype. **vpype clips geometry to that page
+silently** — no warning, exit code 0, and the resulting HPGL looks perfectly
+valid while being cut short. On a roll-fed machine there is no meaningful page
+length, so set these values far beyond any realistic job (the VEVOR profile uses
+50 m) and let `hpgl_align.py` enforce the one limit that is real: the carriage
+travel.
+
+Worth testing explicitly when you add a machine:
+
+```bash
+# A design longer than your paper_size -- the output must not stop at the limit
+./plot -d <your-machine> -n a-three-metre-design.svg
+```
 
 ## Known quirks worth checking
 
@@ -79,6 +95,8 @@ Add a row to the table in the main README.
 - **Axes swapped** — feed and carriage reversed compared to the profile.
 - **Origin on the other side** — some machines home left rather than right.
 - **Different resolution** — not every machine is 1016 dpi.
+- **Silently clipped jobs** — see the trap above; long designs cut short with
+  no error at all.
 
 ## Code style
 

@@ -49,12 +49,28 @@ Measured on the machine, 2026-09-18:
 | Long edge of calibration rectangle | 100 mm ✓ |
 | Short edge (feed direction) | 50 mm ✓ |
 | Inner square position | 85–95 mm from origin, matching the HPGL ✓ |
-| `tests/mirror-test-f.svg` | F reads correctly — **not mirrored** ✓ |
+| `tests/mirror-test-f.svg` | F reads correctly, not mirrored ✓ |
 
-With `DEFAULT_ROTATE=90` the result comes out rotated 180° as seen from the
-operator's seat, because the material is cut towards the back. That is a
-rotation, not a mirror. Set `DEFAULT_ROTATE=270` in `profile.env` if you prefer
-it readable from where you sit.
+### Handedness
+
+The two coordinate frames have **opposite handedness**:
+
+| Frame | horizontal | vertical | determinant |
+|---|---|---|---|
+| SVG on screen | x to the right | y **downwards** | −1 |
+| Vinyl seen from above | Y to the **left** | X feed | +1 |
+
+A rotation alone therefore yields a mirror image, however correct the rotation
+itself is. One axis is flipped to compensate — `flip` in `hpgl_align.py`. `-m`
+cancels that flip, which is what heat transfer vinyl needs.
+
+A mirrored F and a rotated F look alike at a glance, so check orientation with
+`./plot -p` rather than on the machine.
+
+With `DEFAULT_ROTATE=90` the result sits rotated 180° as seen from the
+operator's seat, because material is cut towards the back. Set
+`DEFAULT_ROTATE=270` in `profile.env` to have it read upright from where you
+sit — verified with the preview.
 
 ## Machine-side settings
 

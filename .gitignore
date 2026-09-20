@@ -1,5 +1,6 @@
-# Generated HPGL from dry runs
+# Generated output from dry runs and previews
 /*.hpgl
+/*-preview.svg
 
 # macOS
 .DS_Store

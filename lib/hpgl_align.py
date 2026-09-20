@@ -18,6 +18,7 @@ import sys
 
 DEFAULT_UNITS_PER_MM = 40.0   # 1016 dpi
 DEFAULT_MAX_CROSSFEED = 25200  # 630 mm at 40 units/mm
+SVG_USER_UNIT_DPI = 96.0      # what an SVG without physical units implies
 
 # A PU/PD command with its (possibly empty) coordinate list.
 CMD = re.compile(r"(PU|PD)([0-9,\s.-]*)", re.IGNORECASE)
@@ -43,7 +44,8 @@ def parse_points(body: str) -> list[tuple[float, float]]:
     return list(zip(nums[::2], nums[1::2]))
 
 
-def transform(text: str, deg: int, mirror: bool) -> tuple[str, dict]:
+def transform(text: str, deg: int, mirror: bool,
+              scale: float = 1.0) -> tuple[str, dict]:
     # First pass: collect every point so we know the rotation and the offset.
     points: list[tuple[float, float]] = []
     for _, body in CMD.findall(text):
@@ -51,17 +53,26 @@ def transform(text: str, deg: int, mirror: bool) -> tuple[str, dict]:
     if not points:
         raise SystemExit("No PU/PD coordinates found -- is this really HPGL?")
 
+    # The SVG frame (x right, y down) and the machine frame (x feed, y growing
+    # towards the left) have OPPOSITE handedness. Rotating alone therefore
+    # always yields a mirror image, however correct the rotation itself is.
+    # One axis must be flipped to compensate; -m cancels that flip, which is
+    # exactly what heat transfer vinyl needs.
+    flip = 1 if mirror else -1
+
     moved = [rotate(x, y, deg) for x, y in points]
-    if mirror:
-        moved = [(x, -y) for x, y in moved]
+    moved = [(x, flip * y) for x, y in moved]
+    if scale != 1.0:
+        moved = [(x * scale, y * scale) for x, y in moved]
 
     min_x = min(p[0] for p in moved)
     min_y = min(p[1] for p in moved)
 
     def fix(x: float, y: float) -> tuple[int, int]:
         nx, ny = rotate(x, y, deg)
-        if mirror:
-            ny = -ny
+        ny = flip * ny
+        if scale != 1.0:
+            nx, ny = nx * scale, ny * scale
         return round(nx - min_x), round(ny - min_y)
 
     # Second pass: rewrite the commands in place.
@@ -98,14 +109,46 @@ def main() -> int:
     ap.add_argument("--max-crossfeed", type=int, default=DEFAULT_MAX_CROSSFEED,
                     help="cutting width in plotter units "
                          f"(default: {DEFAULT_MAX_CROSSFEED})")
+    ap.add_argument("-w", "--fit-width", type=float, metavar="MM",
+                    help="scale proportionally so the design measures this many "
+                         "mm across the roll")
+    ap.add_argument("-D", "--source-dpi", type=float, metavar="DPI",
+                    help="DPI the design was authored at. Use this when the SVG "
+                         "carries no physical size (width=\"100%%\"), so its "
+                         "units would otherwise be read as "
+                         f"{SVG_USER_UNIT_DPI:g} dpi and come out too large")
     args = ap.parse_args()
+
+    if args.fit_width and args.source_dpi:
+        print("x Use either --fit-width or --source-dpi, not both: they both "
+              "set the scale.", file=sys.stderr)
+        return 2
 
     with open(args.infile) as fh:
         text = fh.read()
 
+    upm = args.units_per_mm
     out, st = transform(text, args.rotate, args.mirror)
 
-    upm = args.units_per_mm
+    # An SVG without physical units is read as 96 dpi. If it was authored at a
+    # different resolution, everything comes out scaled by that ratio.
+    if args.source_dpi:
+        factor = SVG_USER_UNIT_DPI / args.source_dpi
+        out, st = transform(text, args.rotate, args.mirror, factor)
+        print(f"-> Interpreted as {args.source_dpi:g} dpi "
+              f"(x{factor:.4g} versus the {SVG_USER_UNIT_DPI:g} dpi default)",
+              file=sys.stderr)
+
+    # Scaling to a target width needs the unscaled size first.
+    if args.fit_width:
+        if st["y_max"] <= 0:
+            print("x Cannot scale: the design has no width.", file=sys.stderr)
+            return 2
+        factor = (args.fit_width * upm) / st["y_max"]
+        out, st = transform(text, args.rotate, args.mirror, factor)
+        print(f"-> Scaled to {factor * 100:.1f}% of the exported size",
+              file=sys.stderr)
+
     width_mm = st["y_max"] / upm    # across the roll = Y
     length_mm = st["x_max"] / upm   # along the roll  = X
     print(f"-> Crossfeed (Y): {width_mm:.1f} mm   Feed (X): {length_mm:.1f} mm",
@@ -117,10 +160,25 @@ def main() -> int:
         return 2
 
     if st["y_max"] > args.max_crossfeed:
-        print(f"x ABORTED: {width_mm:.1f} mm crossfeed exceeds the cutting width "
-              f"of {args.max_crossfeed / upm:.0f} mm.\n"
-              f"  Make the design narrower, or rotate it with -r 0 or -r 180.",
-              file=sys.stderr)
+        max_mm = args.max_crossfeed / upm
+        print(f"x ABORTED: {width_mm:.1f} mm across the roll exceeds the cutting "
+              f"width of {max_mm:.0f} mm.", file=sys.stderr)
+        # Only suggest rotating when rotating can actually help, i.e. when the
+        # other dimension would fit. Suggesting it regardless sends people
+        # round in circles.
+        if length_mm <= max_mm:
+            other = (args.rotate + 90) % 360
+            print(f"  Turning it would fit: the other dimension is "
+                  f"{length_mm:.1f} mm. Try -r {other}.", file=sys.stderr)
+        else:
+            fits = max_mm / width_mm * 100
+            print(f"  Rotating would put {length_mm:.1f} mm across the roll "
+                  f"instead, which is too wide as well.\n"
+                  f"  Scale it down to at most {fits:.0f}% "
+                  f"(-w {max_mm:.0f}), or resize it in your design tool.\n"
+                  f"  Note the feed direction is not limited -- only the "
+                  f"{max_mm:.0f} mm of carriage travel is.",
+                  file=sys.stderr)
         return 1
 
     if args.out:

@@ -223,6 +223,16 @@ The "F" matters. A rectangle with a corner mark **cannot** reveal mirroring,
 because every corner is reachable by rotation alone. Mirrored text is only
 obvious once you have wasted material on it.
 
+Better still, look before you cut:
+
+```bash
+./plot -n -p tests/mirror-test-f.svg
+```
+
+This writes a preview SVG of the job as it will lie on the material. Judging
+orientation on screen beats squinting at vinyl — a mirrored F and a rotated F
+are genuinely easy to confuse.
+
 ## Exporting from your design tool
 
 - Export as **plain SVG**
@@ -234,6 +244,39 @@ obvious once you have wasted material on it.
 
 Whatever is wide in your design ends up across the roll; the height runs in the
 feed direction. The `-r` option below turns it the other way round.
+
+### Only one axis is limited
+
+This is a roll-fed machine, so the **630 mm is the carriage travel, not a page
+size**. In the feed direction you are limited by the roll, not the plotter —
+two-metre banners are ordinary work. Only the crossfeed dimension is checked.
+
+### If your design comes out far too large
+
+Affinity Designer (and others) can export SVG without any physical size:
+
+```xml
+<svg width="100%" height="100%" viewBox="0 0 7087 4134">
+```
+
+There is no millimetre anywhere, so the units are read as pixels at 96 dpi, and
+a 600 mm document arrives as 1874 mm. Exporting "at 300 dpi" does not change
+this — SVG is a vector format with no inherent DPI, and that setting only
+affects rasterised effects. The file comes out byte for byte identical.
+
+Two ways around it, both reliable:
+
+```bash
+./plot -D 300 design.svg     # the document was authored at 300 dpi
+./plot -w 480 design.svg     # or simply state the width you want, in mm
+```
+
+`-D` reproduces the original size; `-w` sets the size you want regardless of
+what the file claims. For a cutter you usually have a specific measurement in
+mind anyway, which makes `-w` the more direct answer.
+
+To fix it at the source, export with a preset that writes physical units
+(`width="600mm"`) rather than percentages.
 
 ## Daily use
 
@@ -251,13 +294,31 @@ feed direction. The `-r` option below turns it the other way round.
 |---|---|
 | `-n` | Dry run. Convert, print the dimensions and the HPGL, send nothing |
 | `-m` | Mirror the output — for heat transfer and iron-on vinyl, which is applied face down |
+| `-p` | Also write `<name>-preview.svg` showing what will end up on the vinyl |
+| `-s TOL` | Path simplification tolerance, default `0.05mm`. `-s 0` keeps every point |
 | `-r 0\|90\|180\|270` | Rotation, in the SVG sense. Defaults to the machine profile's `DEFAULT_ROTATE` |
+| `-w MM` | Scale proportionally to this width across the roll |
+| `-D DPI` | Read the SVG's units at this DPI instead of 96 — see below |
 | `-d NAME` | Which machine in `devices/` to use. Only needed once you have more than one |
 | `-q NAME` | Use a different CUPS queue than the profile's |
 | `-h` | Show usage |
 
 Options combine, so `./plot -n -m -r 180 design.svg` previews a mirrored,
 half-turned job without sending it.
+
+### Check the orientation before cutting
+
+```bash
+./plot -n -p design.svg
+```
+
+`-p` writes an SVG showing the job as it will sit on the material, seen from
+above. Open it and confirm the orientation there rather than on the machine —
+a mirrored design and a rotated one look alike at a glance, and the difference
+only becomes obvious once the vinyl is weeded.
+
+If the result is upside down for your seating position, `-r 270` turns it
+around; the design's own orientation is unaffected.
 
 **Input handling:** anything ending in `.hpgl` is sent **unchanged** — no
 rotation, no alignment, no width check. That keeps hand-written test files
@@ -306,14 +367,31 @@ cutting width and USB identifier, and run the verification tests above.
 
 ## Troubleshooting
 
-**Nothing happens / queue stuck**
+**`plot` reports the job was sent, but the plotter does nothing**
+
+CUPS has two independent states: a queue can keep **accepting** jobs while
+being **stopped** for processing them. `lp` reports success either way and the
+job just waits, which looks exactly like the machine ignoring you. CUPS stops a
+queue by itself whenever a transfer fails.
+
+`plot` checks for this now — before sending, and again afterwards — and refuses
+to pretend a job went out when it did not. If you hit it anyway:
 
 ```bash
 lpstat -p VEVOR_SK720L      # queue status
 lpstat -o VEVOR_SK720L      # pending jobs
-cancel -a VEVOR_SK720L      # discard all jobs
-cupsenable VEVOR_SK720L     # re-enable after an error
+cancel -a VEVOR_SK720L && cupsenable VEVOR_SK720L
 ```
+
+**Clear the queue before re-enabling.** Everything you sent while it was stopped
+is still queued, and starts cutting the moment the queue comes back.
+
+The usual cause is an oversized job stalling the USB transfer. Design tools
+export curves far finer than a blade can follow: a 480 mm design can easily
+carry 26 000 segments and reach 600 KB. `plot` simplifies to `0.05mm` by
+default, below the machine's accuracy, which brings a job that size down to
+roughly 18 KB with no visible difference. If you turned it off with `-s 0`,
+turn it back on first.
 
 **`On-line right error >>>` or similar end-stop error.** The job tried to leave
 the cutting area. Reset the machine, set the origin again, **and clear the CUPS
