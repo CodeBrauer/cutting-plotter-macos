@@ -74,6 +74,15 @@ sit — verified with the preview.
 
 ## Machine-side settings
 
-Blade pressure (10–500 g), speed (10–800 mm/s) and blade offset are set on the
-machine's control panel, not in software. Rounded or overcut corners mean the
-blade offset needs adjusting, typically to 0.25 mm.
+Blade pressure (10–500 g) and blade offset are set on the machine's control
+panel. There is no HPGL command for either, so software cannot change them.
+Rounded or overcut corners mean the blade offset needs adjusting, typically to
+0.25 mm.
+
+Speed (10–800 mm/s) can be set from software with `VS`, which `plot -v N` emits.
+The unit `VS` expects is not documented for this machine — set a value and
+compare against the panel before relying on it.
+
+Each job starts with `PU0,0;PD1,1;PU0,0;`, a hairline cut at the origin that
+turns the drag knife into the direction of travel before real cutting starts.
+`plot -P` skips it.

@@ -8,6 +8,8 @@
 #   ./plot -D 300 design.svg    SVG has no physical size, authored at 300 dpi
 #   ./plot -p design.svg        write preview.svg showing what lands on the vinyl
 #   ./plot -s 0 design.svg      keep every point (default simplifies to 0.05mm)
+#   ./plot -v 30 design.svg     set cutting speed via VS
+#   ./plot -P design.svg        skip the blade-alignment cut at the origin
 #   ./plot -m design.svg        mirrored, e.g. for heat transfer vinyl
 #   ./plot -d vevor-sk720l …    pick a machine from devices/
 #   ./plot ready.hpgl           send existing HPGL unchanged
@@ -20,6 +22,8 @@ ROTATE=""
 FITWIDTH=""
 SRCDPI=""
 PREVIEW=0
+VELOCITY=""
+NOPRECUT=""
 # Design tools often emit curves far finer than a blade can follow. Simplifying
 # below the machine's accuracy cuts the file size by an order of magnitude with
 # no visible difference -- and oversized jobs are what stalls the USB transfer
@@ -32,10 +36,12 @@ export PATH="$HOME/.local/bin:$PATH"
 
 usage() { sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
-while getopts ":nmpr:w:D:s:d:q:h" opt; do
+while getopts ":nmpPr:w:D:s:v:d:q:h" opt; do
   case "$opt" in
     n) DRYRUN=1 ;;
     p) PREVIEW=1 ;;
+    P) NOPRECUT="--no-precut" ;;
+    v) VELOCITY="--velocity $OPTARG" ;;
     s) SIMPLIFY="$OPTARG" ;;
     m) MIRROR="--mirror" ;;
     r) ROTATE="$OPTARG" ;;
@@ -107,7 +113,7 @@ else
     write --device "$VPYPE_DEVICE" --page-size raw --absolute --quiet "$RAW" >/dev/null
 
   # Rotate the axes, align to the origin, verify the cutting width.
-  "$ALIGN" "$RAW" -r "$ROTATE" $MIRROR $FITWIDTH $SRCDPI \
+  "$ALIGN" "$RAW" -r "$ROTATE" $MIRROR $FITWIDTH $SRCDPI $VELOCITY $NOPRECUT \
     --units-per-mm "$UNITS_PER_MM" \
     --max-crossfeed "$MAX_CROSSFEED_UNITS" \
     -o "$HPGL"

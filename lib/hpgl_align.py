@@ -20,6 +20,12 @@ DEFAULT_UNITS_PER_MM = 40.0   # 1016 dpi
 DEFAULT_MAX_CROSSFEED = 25200  # 630 mm at 40 units/mm
 SVG_USER_UNIT_DPI = 96.0      # what an SVG without physical units implies
 
+# A drag knife trails behind the carriage and points wherever the last cut left
+# it. One hairline cut at the origin turns the blade into the travel direction
+# before the real job starts, so the first centimetre comes out clean. This is
+# the same header the vendor software emits.
+PRECUT = "PU0,0;PD1,1;PU0,0;"
+
 # A PU/PD command with its (possibly empty) coordinate list.
 CMD = re.compile(r"(PU|PD)([0-9,\s.-]*)", re.IGNORECASE)
 
@@ -112,6 +118,11 @@ def main() -> int:
     ap.add_argument("-w", "--fit-width", type=float, metavar="MM",
                     help="scale proportionally so the design measures this many "
                          "mm across the roll")
+    ap.add_argument("--no-precut", action="store_true",
+                    help="skip the blade-alignment cut at the origin")
+    ap.add_argument("-v", "--velocity", type=float, metavar="N",
+                    help="emit a VS command to set cutting speed. The unit is "
+                         "machine specific -- check against your panel")
     ap.add_argument("-D", "--source-dpi", type=float, metavar="DPI",
                     help="DPI the design was authored at. Use this when the SVG "
                          "carries no physical size (width=\"100%%\"), so its "
@@ -180,6 +191,23 @@ def main() -> int:
                   f"{max_mm:.0f} mm of carriage travel is.",
                   file=sys.stderr)
         return 1
+
+    extra = ""
+    if not args.no_precut:
+        extra += PRECUT
+    if args.velocity is not None:
+        # Force has no equivalent: this family of machines takes blade pressure
+        # from the front panel only, so there is deliberately no counterpart.
+        extra += f"VS{args.velocity:.0f};"
+
+    if extra:
+        # Must land AFTER the initialisation. IN and DF reset the plotter to
+        # its defaults, so anything emitted before them is discarded.
+        init = re.match(r"(?:IN;|DF;|SP\d+;|PA;|PU;)+", out)
+        if init:
+            out = out[:init.end()] + extra + out[init.end():]
+        else:
+            out = extra + out
 
     if args.out:
         with open(args.out, "w") as fh:

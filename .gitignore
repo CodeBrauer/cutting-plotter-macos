@@ -2,6 +2,10 @@
 /*.hpgl
 /*-preview.svg
 
+# Vendor installers and extracted data -- never redistribute these
+*.exe
+*.EXE
+
 # macOS
 .DS_Store
 

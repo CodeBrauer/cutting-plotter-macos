@@ -296,6 +296,8 @@ To fix it at the source, export with a preset that writes physical units
 | `-m` | Mirror the output — for heat transfer and iron-on vinyl, which is applied face down |
 | `-p` | Also write `<name>-preview.svg` showing what will end up on the vinyl |
 | `-s TOL` | Path simplification tolerance, default `0.05mm`. `-s 0` keeps every point |
+| `-v N` | Cutting speed, sent as `VS`. The unit is machine specific — compare against your panel |
+| `-P` | Skip the blade-alignment cut at the origin |
 | `-r 0\|90\|180\|270` | Rotation, in the SVG sense. Defaults to the machine profile's `DEFAULT_ROTATE` |
 | `-w MM` | Scale proportionally to this width across the roll |
 | `-D DPI` | Read the SVG's units at this DPI instead of 96 — see below |
@@ -359,6 +361,14 @@ The manufacturer's manual is included at
 sold under names like Redsail, Saga, Creation or PCUT, use the same command set.
 If yours enumerates as a USB printer, you are most of the way there.
 
+This class of machine is sold under many brands with the same internals — the
+same 630 mm cutter appears as SK-720, KH-720, KI-720, D-720 and others. If your
+cutter looks like the one above and speaks HPGL, the profile here is a
+reasonable starting point. Verify it as described in
+[Verify before you cut](#verify-before-you-cut) rather than assuming it fits,
+and note that some otherwise identical-looking models speak DMPL instead of
+HPGL, which this tool does not implement.
+
 ## Adding your machine
 
 Pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). In short: copy
@@ -414,9 +424,14 @@ machine's `profile.env`.
 **Corners rounded or overcut.** Not a software problem — that is the blade offset,
 set on the machine (typically 0.25 mm).
 
-**Cut too deep or too shallow.** Blade pressure, speed and blade offset are all
-set **on the machine**, not in software. Start low on new material and increase
-until the vinyl is cut through but the backing paper is untouched.
+**Cut too deep or too shallow.** Blade pressure and blade offset are set **on
+the machine**; there is no HPGL command for either on this family of cutters.
+Start low on new material and increase until the vinyl is cut through but the
+backing paper is untouched.
+
+Speed is the exception: `-v N` emits a `VS` command. The unit is not consistent
+between machines, so set a value, cut the calibration pattern and compare
+against what the panel reports before relying on it.
 
 ## Licence
 
