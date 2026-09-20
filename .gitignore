@@ -2,9 +2,11 @@
 /*.hpgl
 /*-preview.svg
 
-# Vendor installers and extracted data -- never redistribute these
+# Vendor installers and anything extracted from them.
+# Third-party material: kept locally, never redistributed.
 *.exe
 *.EXE
+vendor-reference/
 
 # macOS
 .DS_Store

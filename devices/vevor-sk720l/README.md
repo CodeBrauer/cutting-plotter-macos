@@ -19,6 +19,11 @@ Class 7 is the **USB printer class**, not a serial port. There is no
 `/dev/cu.wchusbserial*` and no CH340 driver will create one. VEVOR's spec sheet
 lists the control mode as "USB & COM", which is where the confusion originates.
 
+The CH341 driver bundled with the vendor software covers `VID_1A86` with PIDs
+`7523`, `5523`, `7522` and `E523` — **not `5750`**, which is what this machine
+reports. Even the manufacturer's own serial driver does not apply to it as
+shipped.
+
 ## Coordinate system (measured, not assumed)
 
 | | |
